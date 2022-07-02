@@ -10,13 +10,15 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # hyper-parameter
 # path_to_dataset_root = 'C:/Users/felix/PycharmProjects/HLCV-Project/dataset/'
-path_to_dataset_root = 'C:/Users/felix/Pictures'
+# path_to_dataset_root = 'C:/Users/felix/Pictures'
+path_to_dataset_root = 'F:/DATASETS/original/images/original/'
 # path_to_dataset_root = 'F:/you_know_what_project_this_is/scraping/alldata'
 extentions = ['png', 'jpg', 'jpeg', 'gif']
 
 global path_to_output
 global output_size
-path_to_output = 'C:/Users/felix/PycharmProjects/HLCV-Project/test_cropping'
+# path_to_output = 'C:/Users/felix/PycharmProjects/HLCV-Project/test_cropping'
+path_to_output = 'F:/DATASETS/original/Resized/'
 output_size = (360, 240)
 
 # get all the files
@@ -52,9 +54,11 @@ if __name__ == '__main__':
     for extention in extentions:
         files.extend(glob.glob(os.path.join(path_to_dataset_root, f'**/*.{extention}')))
 
+    print('found', len(files), 'files')
+
 
     with tqdm.tqdm(total=len(files)) as pbar:
-        with ThreadPoolExecutor(max_workers=len(files)) as ex:
+        with ThreadPoolExecutor(max_workers=5) as ex:
             futures = [ex.submit(resize_function, file) for file in files]
             for future in as_completed(futures):
                 result = future.result()

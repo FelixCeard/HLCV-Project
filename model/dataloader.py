@@ -19,6 +19,47 @@ class PathException(Exception):
         super(PathException, self).__init__(string)
 
 
+class CustomImageDataLoader(Dataset):
+
+    def check_dataset_folder(self):
+        if os.path.isdir(self.path_dataset) == False:
+            raise PathException(f"The given path is not a valid: {self.path_dataset}")
+
+    def __init__(self, path_dataset: str, transform=None):
+        self.path_dataset = path_dataset
+
+        self.check_dataset_folder()
+
+        self.transform = transform
+
+        # get images
+        self.image_paths = []
+        self.image_paths.extend(glob.glob(os.path.join(path_dataset, '*.png')))
+        self.image_paths.extend(glob.glob(os.path.join(path_dataset, '*.jpg')))
+        self.image_paths.extend(glob.glob(os.path.join(path_dataset, '*.jpeg')))
+
+        self.size = len(self.image_paths)
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+
+        img_name = self.image_paths[idx]
+        image = io.imread(img_name)
+        # print(torch.zeros_like(image))
+        image = torch.tensor(image, dtype=torch.float32)
+
+        sample = {'image': image, 'image_path': img_name}
+
+        if self.transform:
+            sample = self.transform(sample)
+
+        return sample
+
+
 class SketchImageDataLoader(Dataset):
 
     def check_dataset_folder(self):
@@ -98,7 +139,8 @@ class SketchImageDataLoader(Dataset):
 
         # print(image_resized.shape)
 
-        sample = {'image': image, 'sketch': sketch, 'image_path': img_name, 'sketch_path': sketch_name, 'resized':image_resized}
+        sample = {'image': image, 'sketch': sketch, 'image_path': img_name, 'sketch_path': sketch_name,
+                  'resized': image_resized}
 
         if self.transform:
             sample = self.transform(sample)
