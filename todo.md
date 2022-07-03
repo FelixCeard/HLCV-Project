@@ -2,7 +2,7 @@
 ## VAE training script
 
 - [ ] batch transform
-- [ ] save best model
+- [x] save best model
 - [ ] hyper-parameter tuning 
   - multiple runs with different values
     - VAE size

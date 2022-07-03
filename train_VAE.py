@@ -1,8 +1,14 @@
+import os
+import re
+
 import torch.optim
 from torch.utils.data import DataLoader
 from torchvision.utils import make_grid
 from model.custom_VAE import CustomVAE
 from model.dataloader import ImageSketchDataLoader, ImageDataLoader
+import matplotlib.pyplot as plt
+
+from tqdm import tqdm
 
 import logging
 import wandb  # weight and bias for loss visualization etc...
@@ -16,6 +22,39 @@ logging.basicConfig(level=logging.INFO)
 epochs = 10000
 lr = 0.001
 batch_size = 3
+path_images = 'F:/DATASETS/original/images'
+path_sketches = 'F:/DATASETS/original/sketches'
+path_weights = './run/weights/'
+
+
+def check_weight_path(path, folder=None):
+    if os.path.isdir(path) == False:
+        splited = re.split(r"/|\\", path)[:-1]
+        folder_name = re.split(r"/|\\", path)[-1]
+        check_weight_path('/'.join(splited), folder_name)
+        if os.path.isdir(path) == False:
+            os.mkdir(path)
+    else:
+        if folder is not None:
+            os.mkdir(folder)
+
+
+check_weight_path(path_weights)
+
+
+def make_new_folder(path_weights):
+    if os.path.isdir(path_weights) == False:
+        raise RuntimeError(f"The given path is not valid: {path_weights}")
+
+    number_of_previous_runs = len(next(os.walk(path_weights))[1])
+    new_path = os.path.join(path_weights, f'run-{number_of_previous_runs + 1}')
+
+    os.mkdir(new_path)
+
+    return new_path
+
+
+path_weights = make_new_folder(path_weights)
 
 # create the model
 logging.info('initializing the model')
@@ -33,8 +72,6 @@ vae = CustomVAE(
 logging.info('done')
 
 logging.info('loading the datasets')
-path_images = 'F:/DATASETS/original/images'
-path_sketches = 'F:/DATASETS/original/sketches'
 
 dataset_image = ImageDataLoader(path_images=path_images)
 
@@ -43,7 +80,6 @@ train_size = int(len(dataset_image) * train_percentage)
 test_size = len(dataset_image) - train_size
 
 train_dataset, test_dataset = torch.utils.data.random_split(dataset_image, [train_size, test_size])
-
 
 dataloader_train = DataLoader(
     train_dataset,
@@ -84,7 +120,8 @@ for i in range(n):
     log_images[i] = log_images_list[i]
 log_images = log_images.to('cuda')
 
-
+best_loss_train = torch.tensor([99999999999999.0]).to('cuda')
+best_loss_test = torch.tensor([99999999999999.0]).to('cuda')
 logging.info('starting training')
 for epoch in range(epochs):
     batch_i = 0
@@ -94,7 +131,8 @@ for epoch in range(epochs):
     epoch_loss = torch.zeros(1).to('cuda')
     if log_wandb:
         wandb.log({'epoch': epoch})
-    for batch in dataloader_train:
+
+    for batch in tqdm(dataloader_train):
 
         if batch_i % 5 == 0:  # gradient accumulation:
             optimizer.zero_grad()
@@ -115,36 +153,39 @@ for epoch in range(epochs):
 
     epoch_loss /= train_size
 
+    if epoch_loss < best_loss_train:
+        best_loss_train = epoch_loss
+        torch.save(vae, os.path.join(path_weights, f'best_train_model.pt'))
+
     logging.info('test...')
     # test
     with torch.no_grad():
         test_loss = torch.zeros(1).to('cuda')
-        for batch in dataloader_train:
+        for batch in tqdm(dataloader_train):
             imgs = batch['image'].to('cuda')
             loss = vae(imgs, return_loss=True)
             test_loss += loss
         test_loss /= test_size
-    if log_wandb:
-        wandb.log({})
+
+        if test_loss < best_loss_test:
+            best_loss_test = test_loss
+            torch.save(vae, os.path.join(path_weights, f'best_test_model.pt'))
 
     reconstructed = vae(log_images, return_loss=False)
 
-    grid_tensor = torch.concat([log_images, reconstructed.resize(batch_size, 240, 360, 3)], 0) #, 0
-    # print(grid_tensor.shape)
-    # grid = make_grid(grid_tensor, nrow=batch_size)
+    # print(reconstructed.shape) # [3, 3, 240, 360]
+
+    # grid_tensor = torch.concat([log_images, reconstructed.resize(batch_size, 240, 360, 3)], 0) #, 0
 
     if log_wandb:
-        grid_list = {}
-        for i in range(batch_size*2):
-            wandb_img = wandb.Image(grid_tensor[i].resize(3, 240, 360), caption="Top: Output, Bottom: Input")
-            grid_list[f'image_{i}'] = wandb_img
-        logging.info('print image')
+        fig, ax = plt.subplots(2, batch_size, figsize=(batch_size * 5, 10))
+        for j in range(batch_size):
+            ax[0, j].imshow(log_images[j].resize(240, 360, 3).detach().cpu())
+            ax[1, j].imshow(reconstructed[j].permute(1, 2, 0).detach().cpu())
 
-        log_info = {"loss": epoch_loss, 'epoch': epoch, 'test loss': test_loss}
-        for key in grid_list.keys():
-            log_info[key] = grid_list[key]
+        log_info = {"loss": epoch_loss, 'epoch': epoch, 'test loss': test_loss, 'plot': plt}
 
         wandb.log(log_info)
 
-
-
+    # save the weights after each epoch (given that it takes ~5 hours on my GPU -> ~2 hourse on RTX?)
+    torch.save(vae, os.path.join(path_weights, f'weights_epoch_{epoch}.pt'))
