@@ -53,7 +53,8 @@ class CustomVAE(DiscreteVAE):
             straight_through=False,
             kl_div_loss_weight=0.,
             normalization=((*((0.5,) * 3), 0), (*((0.5,) * 3), 1)),
-            device='cuda'
+            device='cuda',
+            drop_out_rate=0
     ):
         super().__init__()
         assert num_layers >= 1, 'number of layers must be greater than or equal to 1'
@@ -86,10 +87,17 @@ class CustomVAE(DiscreteVAE):
 
         for (enc_in, enc_out), (dec_in, dec_out) in zip(enc_chans_io, dec_chans_io):
             enc_layers.append(nn.Sequential(nn.Conv2d(enc_in, enc_out, 4, stride=2, padding=1), nn.ReLU()))
+            if drop_out_rate > 0:
+                enc_layers.append(nn.Dropout(drop_out_rate))
+                dec_layers.append(nn.Dropout(drop_out_rate))
+
             dec_layers.append(nn.Sequential(nn.ConvTranspose2d(dec_in, dec_out, 4, stride=2, padding=1), nn.ReLU()))
 
         for _ in range(num_resnet_blocks):
             dec_layers.insert(0, ResBlock(dec_chans[1]))
+            if drop_out_rate > 0:
+                enc_layers.append(nn.Dropout(drop_out_rate))
+                dec_layers.append(nn.Dropout(drop_out_rate))
             enc_layers.append(ResBlock(enc_chans[-1]))
 
         if num_resnet_blocks > 0:

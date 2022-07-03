@@ -1,19 +1,18 @@
+import logging
 import os
 import re
 
-import torch.optim
-from torch.utils.data import DataLoader
-from torchvision.utils import make_grid
-from model.custom_VAE import CustomVAE
-from model.dataloader import ImageSketchDataLoader, ImageDataLoader
 import matplotlib.pyplot as plt
-
-from tqdm import tqdm
-
-import logging
+import torch.optim
 import wandb  # weight and bias for loss visualization etc...
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+from torchsummary import summary
 
-log_wandb = True
+from model.custom_VAE import CustomVAE
+from model.dataloader import ImageDataLoader
+
+log_wandb = False
 
 if log_wandb:
     wandb.init(project="test-project", entity="hlcv22")
@@ -26,6 +25,7 @@ path_images = 'F:/DATASETS/original/images'
 path_sketches = 'F:/DATASETS/original/sketches'
 path_weights = './run/weights/'
 
+transforms = []
 
 def check_weight_path(path, folder=None):
     if os.path.isdir(path) == False:
@@ -35,8 +35,8 @@ def check_weight_path(path, folder=None):
         if os.path.isdir(path) == False:
             os.mkdir(path)
     else:
-        if folder is not None:
-            os.mkdir(folder)
+        if folder is not None and os.path.isdir(os.path.join(path, folder)) == False:
+            os.mkdir(os.path.join(path, folder))
 
 
 check_weight_path(path_weights)
@@ -63,13 +63,19 @@ vae = CustomVAE(
     num_tokens=2048,
     codebook_dim=512,
     num_layers=3,
-    num_resnet_blocks=0,
-    hidden_dim=64,
+    num_resnet_blocks=3,
+    hidden_dim=64, # to search 64(965,379), 128(3,517,955)
     channels=3,
     smooth_l1_loss=False,
     temperature=0.9,
+    drop_out_rate=0.1
 ).to('cuda')
 logging.info('done')
+
+summary(vae, (3, 360, 240))
+
+exit()
+
 
 logging.info('loading the datasets')
 
@@ -101,7 +107,8 @@ logging.info('done')
 
 # train
 
-optimizer = torch.optim.Adagrad(params=vae.parameters(), lr=lr)
+optimizer = torch.optim.Adagrad(params=vae.parameters(), lr=lr, weight_decay=0.1)
+
 
 wandb.config = {
     "learning_rate": lr,
@@ -173,6 +180,10 @@ for epoch in range(epochs):
 
     reconstructed = vae(log_images, return_loss=False)
 
+    print(torch.min(reconstructed), torch.max(reconstructed))
+
+    reconstructed = torch.clip(reconstructed, 0, 1)
+
     # print(reconstructed.shape) # [3, 3, 240, 360]
 
     # grid_tensor = torch.concat([log_images, reconstructed.resize(batch_size, 240, 360, 3)], 0) #, 0
@@ -181,7 +192,7 @@ for epoch in range(epochs):
         fig, ax = plt.subplots(2, batch_size, figsize=(batch_size * 5, 10))
         for j in range(batch_size):
             ax[0, j].imshow(log_images[j].resize(240, 360, 3).detach().cpu())
-            ax[1, j].imshow(reconstructed[j].permute(1, 2, 0).detach().cpu())
+            ax[1, j].imshow(reconstructed[j].resize(240, 360, 3).detach().cpu())
 
         log_info = {"loss": epoch_loss, 'epoch': epoch, 'test loss': test_loss, 'plot': plt}
 
