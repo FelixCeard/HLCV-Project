@@ -2,22 +2,15 @@
 Custom data loader
 """
 import glob
+import os
 import random
 
-import numpy as np
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms, utils
-from skimage import io, transform
-from skimage.transform import rescale, resize, downscale_local_mean
-import torchvision.transforms.functional as TF
-import torchvision.transforms as T
-from PIL import Image
-
 import albumentations as A
-
-import os
-import re
+import numpy as np
 import torch
+import torchvision.transforms.functional as TF
+from skimage import io
+from torch.utils.data import Dataset
 
 
 class PathException(Exception):

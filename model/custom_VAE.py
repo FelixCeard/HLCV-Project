@@ -1,13 +1,9 @@
 from math import sqrt
 
-import numpy as np
 import torch
 import torch.nn.functional as F
-from axial_positional_embedding import AxialPositionalEmbedding
 from dalle_pytorch import distributed_utils
-from dalle_pytorch.dalle_pytorch import eval_decorator, DiscreteVAE, set_requires_grad, always, SharedEmbedding, top_k, \
-    gumbel_sample, prob_mask_like, is_empty
-from dalle_pytorch.transformer import Transformer, DivideMax
+from dalle_pytorch.dalle_pytorch import eval_decorator, DiscreteVAE
 from einops import rearrange
 from matplotlib import pyplot as plt
 from torch import nn, einsum

@@ -37,6 +37,7 @@ sweep_config = {
     }
 }
 
+
 def check_weight_path(path, folder=None):
     if not os.path.isdir(path):
         splited = re.split(r"[/\\]", path)[:-1]
@@ -71,7 +72,7 @@ def train(config=None,
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logging.info(f'Using devide: {device}')
 
-    with wandb.init(project="[TEST]hyperparameter_search", entity="hlcv22", config=config):
+    with wandb.init(project="hyperparameter_search", entity="hlcv22", config=config):
         config = wandb.config
         # create the model
         logging.info('initializing the model')
@@ -158,8 +159,8 @@ def train(config=None,
         logging.info('loading logging images')
 
         # for the loss logging
-        best_loss_train = torch.tensor([99999999999999.0]).to('cuda')
-        best_loss_test = torch.tensor([99999999999999.0]).to('cuda')
+        best_loss_train = torch.tensor([99999999999999.0]).to(device)
+        best_loss_test = torch.tensor([99999999999999.0]).to(device)
         logging.info('starting training')
 
         # training loop
@@ -169,7 +170,7 @@ def train(config=None,
 
             logging.info('train...')
             epoch_loss = torch.zeros(1).to(device)
-            wandb.log({'epoch': epoch, 'num_tokens': config.num_tokens, 'num_resnet_blocks':config.num_resnet_blocks})
+            wandb.log({'epoch': epoch, 'num_tokens': config.num_tokens, 'num_resnet_blocks': config.num_resnet_blocks})
 
             for batch in tqdm(dataloader_train):
 
@@ -234,7 +235,6 @@ def train(config=None,
             logging.debug(f'predicted values in the range [{torch.min(reconstructed)}, {torch.max(reconstructed)}]')
             reconstructed = torch.clip(reconstructed, 0, 1)
 
-
             fig, ax = plt.subplots(2, config.batch_size, figsize=(config.batch_size * 5, 10))
             # ax[0, 0].set_xlabel('Sketch')
             ax[0, 0].set_xlabel('Real image')
@@ -257,5 +257,5 @@ def train(config=None,
 
 
 if __name__ == '__main__':
-    sweep_id = wandb.sweep(sweep_config, project="[TEST]hyperparameter_search")
+    sweep_id = wandb.sweep(sweep_config, project="hyperparameter_search")
     wandb.agent(sweep_id, function=train, count=5)
