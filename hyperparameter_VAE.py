@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 """
 VAE training: input is sketch, output is image
 """
@@ -257,5 +259,6 @@ def train(config=None,
 
 
 if __name__ == '__main__':
+    wandb.login(key='e0da967bc1f1f7b4895de7ecd6063d9513e0337c')
     sweep_id = wandb.sweep(sweep_config, project="hyperparameter_search")
     wandb.agent(sweep_id, function=train, count=5)

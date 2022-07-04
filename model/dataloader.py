@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 Custom data loader
 """
@@ -89,7 +90,7 @@ class ImageSketchDataLoader(Dataset):
 
         return sample
 
-    def transform(self, image: torch.tensor, sketch: torch.tensor) -> tuple[torch.tensor, torch.tensor]:
+    def transform(self, image: torch.tensor, sketch: torch.tensor):
         """
         Applies the same transformations to the original images and sketches.
         You will have to overwrite this function for your specific need.
