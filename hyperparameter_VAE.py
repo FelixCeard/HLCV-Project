@@ -25,8 +25,8 @@ sweep_config = {
     'method': 'random',
     'metric': {'goal': 'minimize', 'name': 'loss'},
     'parameters': {
-        'batch_size': {'value': 3},  # find best batch size
-        'epochs': {'value': 15},
+        'batch_size': {'values': [32, 48, 64]},  # find best batch size
+        'epochs': {'value': 2},
         'learning_rate': {'distribution': 'uniform',
                           'max': 0.01,
                           'min': 0.00005},
@@ -34,8 +34,9 @@ sweep_config = {
         'num_resnet_blocks': {'values': [1, 2, 3, 5, 7]},  # probably going to find 1 or 3
         'num_tokens': {'values': [512, 1024, 2048, 4086, 8192]},
         'num_gradient_accumulations': {'values': [1, 3, 5, 10, 15]},
-        'hidden_dim': {'values': [32, 64, 128]},
-        'drop_out': {'values': [0, 0.1, 0.2, 0.3]}
+        'hidden_dim': {'values': [64, 128]},
+        'drop_out': {'values': [0, 0.1, 0.2, 0.3]},
+        'num_image_display': {'value': 5}
     }
 }
 
@@ -145,7 +146,7 @@ def train(config=None,
 
         # saving images for the logging
         logging.info('loading logging images')
-        n = config.batch_size
+        n = config.num_image_display
         log_images_list = [test_dataset[i]['image'] for i in range(n)]
         log_sketches_list = [test_dataset[i]['sketch'] for i in range(n)]
 
@@ -178,6 +179,23 @@ def train(config=None,
 
                 if batch_i % config.num_gradient_accumulations == 0:  # gradient accumulation:
                     optimizer.zero_grad()
+
+                # add more plots to be displayed
+                if batch_i % 500 == 0:
+                    with torch.no_grad():
+                        reconstructed = vae(log_images, return_loss=False)
+                        reconstructed = torch.clip(reconstructed, 0, 1)
+
+                        fig, ax = plt.subplots(2, config.num_image_display, figsize=(config.num_image_display * 5, 10))
+                        ax[0, 0].set_xlabel('Real image')
+                        ax[1, 0].set_xlabel('Predicted image')
+                        reconstructed = reconstructed.permute(0, 2, 3, 1)
+                        for j in range(config.num_image_display):
+                            ax[0, j].imshow(log_images[j].detach().cpu())
+                            ax[1, j].imshow(reconstructed[j].detach().cpu())
+                        wandb.log({'plot': plt})
+                        fig.clear()
+                        plt.close(fig)
 
                 # get the images
                 sketch = batch['sketch'].to(device)
@@ -237,13 +255,11 @@ def train(config=None,
             logging.debug(f'predicted values in the range [{torch.min(reconstructed)}, {torch.max(reconstructed)}]')
             reconstructed = torch.clip(reconstructed, 0, 1)
 
-            fig, ax = plt.subplots(2, config.batch_size, figsize=(config.batch_size * 5, 10))
-            # ax[0, 0].set_xlabel('Sketch')
+            fig, ax = plt.subplots(2, config.num_image_display, figsize=(config.num_image_display * 5, 10))
             ax[0, 0].set_xlabel('Real image')
             ax[1, 0].set_xlabel('Predicted image')
             reconstructed = reconstructed.permute(0, 2, 3, 1)
-            for j in range(config.batch_size):
-                # ax[0, j].imshow(log_sketch[j].permute(1, 2, 0).detach().cpu())
+            for j in range(config.num_image_display):
                 ax[0, j].imshow(log_images[j].detach().cpu())
                 ax[1, j].imshow(reconstructed[j].detach().cpu())
 
