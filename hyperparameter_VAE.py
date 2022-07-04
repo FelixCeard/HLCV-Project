@@ -140,7 +140,7 @@ def train(config=None,
         # add a warmup and a decay for the learning rate
         lr_scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=1, end_factor=0.9,
                                                          total_iters=num_steps)
-        warmup_scheduler = warmup.LinearWarmup(optimizer, 400)  # increase to 2000 for the long run
+        warmup_scheduler = warmup.LinearWarmup(optimizer, 2000)  # increase to 2000 for the long run
         logging.info(f'chosen optimizer: {config.optimizer}')
         logging.info('done')
 
