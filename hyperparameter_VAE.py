@@ -13,26 +13,27 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from torchsummary import summary
 
-from model.custom_VAE import CustomVAE
+from model.custom_VAE import CustomVAE, weights_init
 from model.dataloader import ImageDataLoader, ImageSketchDataLoader
 import pytorch_warmup as warmup
 
 logging.basicConfig(level=logging.INFO)
 
 sweep_config = {
-    'method': 'bayes',
+    'method': 'random',
     'metric': {'goal': 'minimize', 'name': 'loss'},
     'parameters': {
         'batch_size': {'value': 3},  # find best batch size
         'epochs': {'value': 15},
         'learning_rate': {'distribution': 'uniform',
                           'max': 0.01,
-                          'min': 0},
+                          'min': 0.00005},
         'optimizer': {'values': ['adam', 'sgd', 'adagrad']},
         'num_resnet_blocks': {'values': [1, 2, 3, 5, 7]},  # probably going to find 1 or 3
         'num_tokens': {'values': [512, 1024, 2048, 4086, 8192]},
         'num_gradient_accumulations': {'values': [1, 3, 5, 10, 15]},
-        'hidden_dim': {'values': [32, 64, 128]}
+        'hidden_dim': {'values': [32, 64, 128]},
+        'drop_out': {'values': [0, 0.1, 0.2, 0.3]}
     }
 }
 
@@ -75,20 +76,22 @@ def train(config=None,
         # create the model
         logging.info('initializing the model')
         vae = CustomVAE(
-            image_size=(360, 240),  # latent space: (45, 30)
+            image_size=(360, 240),
             num_tokens=config.num_tokens,
             codebook_dim=512,
-            num_layers=3,
+            num_layers=3,  # latent space: (45, 30)
             num_resnet_blocks=config.num_resnet_blocks,
             hidden_dim=config.hidden_dim,  # to search 64(965,379), 128(3,517,955)
             channels=3,
             smooth_l1_loss=False,
             temperature=0.9,
-            drop_out_rate=0.1
+            drop_out_rate=config.drop_out
         ).to(device)
 
+        vae.apply(weights_init)
+
         logging.info('done')
-        wandb.watch(vae, vae.loss_fn, log="all")
+        # wandb.watch(vae, vae.loss_fn, log="all")
 
         # display a summary for information
         summary(vae, (3, 360, 240))
@@ -166,7 +169,7 @@ def train(config=None,
 
             logging.info('train...')
             epoch_loss = torch.zeros(1).to(device)
-            wandb.log({'epoch': epoch})
+            wandb.log({'epoch': epoch, 'num_tokens': config.num_tokens, 'num_resnet_blocks':config.num_resnet_blocks})
 
             for batch in tqdm(dataloader_train):
 
@@ -178,10 +181,10 @@ def train(config=None,
                 img = batch['image'].to(device)
 
                 # predict
-                predictions = vae(img, return_loss=True)
+                predictions = vae(img, return_loss=False)
 
                 # compute the raw difference
-                loss = vae.loss_fn(predictions, img)
+                loss = vae.loss_fn(predictions.permute(0, 2, 3, 1), img)
                 loss.backward()
 
                 # add the loss for logging
@@ -202,7 +205,7 @@ def train(config=None,
             # early stopping mechanism
             if epoch_loss < best_loss_train:
                 best_loss_train = epoch_loss
-                # torch.save(vae, os.path.join(path_weights, f'best_train_model.pt'))
+                torch.save(vae, os.path.join(path_weights, f'best_train_model.pt'))
 
             # test
             logging.info('test...')
@@ -211,12 +214,12 @@ def train(config=None,
                 test_loss = torch.zeros(1).to(device)
 
                 for batch in tqdm(dataloader_test):
-                    img = batch['image'].to('cuda')
-                    sketch = batch['sketch'].to('cuda')
-                    pred = vae(sketch, return_loss=False)
+                    img = batch['image'].to(device)
+                    sketch = batch['sketch'].to(device)
+                    pred = vae(img, return_loss=False)
 
                     # test loss
-                    test_loss += vae.loss_fn(pred, img)
+                    test_loss += vae.loss_fn(pred.permute(0, 2, 3, 1), img)
 
                 # mean test loss
                 test_loss /= test_size
@@ -228,16 +231,19 @@ def train(config=None,
 
             # prediction logging
             reconstructed = vae(log_images, return_loss=False)
+            logging.debug(f'predicted values in the range [{torch.min(reconstructed)}, {torch.max(reconstructed)}]')
             reconstructed = torch.clip(reconstructed, 0, 1)
+
 
             fig, ax = plt.subplots(2, config.batch_size, figsize=(config.batch_size * 5, 10))
             # ax[0, 0].set_xlabel('Sketch')
             ax[0, 0].set_xlabel('Real image')
             ax[1, 0].set_xlabel('Predicted image')
+            reconstructed = reconstructed.permute(0, 2, 3, 1)
             for j in range(config.batch_size):
                 # ax[0, j].imshow(log_sketch[j].permute(1, 2, 0).detach().cpu())
-                ax[0, j].imshow(log_images[j].permute(1, 2, 0).detach().cpu())
-                ax[1, j].imshow(reconstructed[j].permute(1, 2, 0).detach().cpu())
+                ax[0, j].imshow(log_images[j].detach().cpu())
+                ax[1, j].imshow(reconstructed[j].detach().cpu())
 
             # stats logging
             log_info = {"loss": epoch_loss, 'epoch': epoch, 'test loss': test_loss, 'plot': plt}

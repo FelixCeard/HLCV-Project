@@ -72,39 +72,25 @@ class ImageSketchDataLoader(Dataset):
             idx = idx.tolist()
 
         img_name = self.image_paths[idx]
-        image = Image.open(img_name).convert('RGB')
-        # image = io.imread(img_name, as_gray=False)
-        # image = torch.tensor(image, dtype=torch.float32)
-        # image = image / 255.0
+        # image = Image.open(img_name).convert('RGB')
+        image = io.imread(img_name, as_gray=False)
+        image = torch.tensor(image, dtype=torch.float32)
+        image = image / 255.0
 
         sketch_name = self.sketch_paths[idx]
-        sketch = Image.open(sketch_name).convert('RGB')
-        # sketch = io.imread(sketch_name, as_gray=False)
-        # sketch = torch.tensor(sketch, dtype=torch.float32)
-        # sketch = sketch / 255.0
+        # sketch = Image.open(sketch_name).convert('RGB')
+        sketch = io.imread(sketch_name, as_gray=False)
+        sketch = torch.tensor(sketch, dtype=torch.float32)
+        sketch = sketch / 255.0
 
-        # if len(image.shape) == 2:
-        # convert grayscale to rgb
-        # image = np.stack([image, image, image], 2)
+        if len(image.shape) == 2:
+            # convert grayscale to rgb
+            image = torch.stack([image, image, image], 2)
 
-        # if len(sketch.shape) == 2:
-        # convert grayscale to rgb
-        # sketch = np.stack([sketch, sketch, sketch], 2)
+        if len(sketch.shape) == 2:
+            # convert grayscale to rgb
+            sketch = torch.stack([sketch, sketch, sketch], 2)
 
-        # we do not apply some transforms
-        # if self.apply_transform:
-        #     r = self.transform(image, sketch)
-        #
-        #     image = r['image']
-        #     sketch = r['sketch']
-        #
-        convert_tensor = transforms.ToTensor()
-
-
-        image = convert_tensor(image) # max is 1.0
-        sketch = convert_tensor(sketch)
-
-        # exit()
 
         sample = {'image': image, 'image_path': img_name, 'sketch': sketch, 'sketch_path': sketch_name}
 

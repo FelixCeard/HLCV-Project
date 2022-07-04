@@ -22,6 +22,14 @@ def exists(val):
 def default(val, d):
     return val if exists(val) else d
 
+def weights_init(m):
+    if type(m) == nn.Linear:
+        nn.init.normal_(m.weight.data, mean=0.0, std=1e-3)
+        m.bias.data.fill_(0.0)
+
+    if isinstance(m, nn.Conv2d):
+        nn.init.xavier_normal_(m.weight.data)
+        m.bias.data.fill_(0.0)
 
 class ResBlock(nn.Module):
     def __init__(self, chan):
