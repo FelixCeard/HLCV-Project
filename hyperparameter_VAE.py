@@ -63,11 +63,11 @@ def make_new_folder(path_weights):
 
 
 def train(config=None,
-          path_images='F:/DATASETS/original/images',
-          path_sketches='F:/DATASETS/original/sketches',
+          path_images='./images',
+          path_sketches='./sketches',
           path_weights='./run/weights/'):
-    check_weight_path(path_weights)
-    path_weights = make_new_folder(path_weights)
+    # check_weight_path(path_weights)
+    # path_weights = make_new_folder(path_weights)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logging.info(f'Using devide: {device}')
@@ -206,7 +206,7 @@ def train(config=None,
             # early stopping mechanism
             if epoch_loss < best_loss_train:
                 best_loss_train = epoch_loss
-                torch.save(vae, os.path.join(path_weights, f'best_train_model.pt'))
+                # torch.save(vae, os.path.join(path_weights, f'best_train_model.pt'))
 
             # test
             logging.info('test...')
