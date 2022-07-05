@@ -25,7 +25,7 @@ sweep_config = {
     'method': 'random',
     'metric': {'goal': 'minimize', 'name': 'loss'},
     'parameters': {
-        'batch_size': {'values': [32, 48, 64]},  # find best batch size
+        'batch_size': {'values': [32]},  # find best batch size
         'epochs': {'value': 2},
         'learning_rate': {'distribution': 'uniform',
                           'max': 0.01,
@@ -172,7 +172,7 @@ def train(config=None,
             batch_i = 0
 
             logging.info('train...')
-            epoch_loss = torch.zeros(1).to(device)
+            epoch_loss = 0
             wandb.log({'epoch': epoch, 'num_tokens': config.num_tokens, 'num_resnet_blocks': config.num_resnet_blocks})
 
             for batch in tqdm(dataloader_train):
@@ -198,7 +198,7 @@ def train(config=None,
                         plt.close(fig)
 
                 # get the images
-                sketch = batch['sketch'].to(device)
+                # sketch = batch['sketch'].to(device)
                 img = batch['image'].to(device)
 
                 # predict
@@ -209,7 +209,7 @@ def train(config=None,
                 loss.backward()
 
                 # add the loss for logging
-                epoch_loss += loss
+                epoch_loss += loss.item()
 
                 # perform the optimization
                 optimizer.step()
@@ -219,6 +219,12 @@ def train(config=None,
                 wandb.log({"step loss": loss, 'learning rate': lr_scheduler.get_lr()[0]})
 
                 batch_i += 1
+
+                # clear memory
+                loss.detach()
+                img.detach()
+                predictions.detach()
+
 
             # mean epoch loss
             epoch_loss /= train_size
@@ -232,15 +238,17 @@ def train(config=None,
             logging.info('test...')
             with torch.no_grad():
 
-                test_loss = torch.zeros(1).to(device)
+                test_loss = 0
 
                 for batch in tqdm(dataloader_test):
                     img = batch['image'].to(device)
-                    sketch = batch['sketch'].to(device)
+                    # sketch = batch['sketch'].to(device)
                     pred = vae(img, return_loss=False)
 
                     # test loss
-                    test_loss += vae.loss_fn(pred.permute(0, 2, 3, 1), img)
+                    test_loss += vae.loss_fn(pred.permute(0, 2, 3, 1), img).item()
+
+                    img.detach()
 
                 # mean test loss
                 test_loss /= test_size
