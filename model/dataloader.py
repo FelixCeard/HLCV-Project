@@ -50,8 +50,8 @@ class ImageSketchDataLoader(Dataset):
 
         self.apply_transform = True
 
-        self.image_paths = self.image_paths#[:500]
-        self.sketch_paths = self.sketch_paths#[:500]
+        self.image_paths = self.image_paths[:4000]
+        self.sketch_paths = self.sketch_paths[:4000]
 
         # check whether we find a sketch for each image
         assert len(self.image_paths) == len(self.sketch_paths)
