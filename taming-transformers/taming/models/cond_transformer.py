@@ -79,10 +79,24 @@ class Net2NetTransformer(pl.LightningModule):
 
     def forward(self, x, c):
         # one step to produce the logits
+
+        # print('x:', x.shape)
+        # print('c:', c.shape)
+
+        # x = torch.permute(x, (0, 2, 1, 3))
+        # c = torch.permute(c, (0, 2, 1, 3))
+
+        # print('- x:', x.shape)
+        # print('- c:', c.shape)
+
         _, z_indices = self.encode_to_z(x)
         _, c_indices = self.encode_to_c(c)
 
+        # print('z_indices:', z_indices.shape)
+        # print('c_indices:', c_indices.shape)
+
         if self.training and self.pkeep < 1.0:
+            # print('mask')
             mask = torch.bernoulli(self.pkeep * torch.ones(z_indices.shape,
                                                            device=z_indices.device))
             mask = mask.round().to(dtype=torch.int64)
@@ -91,17 +105,28 @@ class Net2NetTransformer(pl.LightningModule):
         else:
             a_indices = z_indices
 
-        a_indices = a_indices.squeeze()
+        # a_indices = a_indices.squeeze()
 
-        cz_indices = torch.cat((c_indices, a_indices), dim=0)
+        # c_indices = torch.unsqueeze(c_indices, 0)
 
-        cz_indices = torch.unsqueeze(cz_indices, 0)
+        # print('a_indices:', a_indices.shape)
+        # print('c_indices:', c_indices.shape)
+        c_indices = c_indices.view(a_indices.shape[0], -1)
+
+
+        # print('c_indices:', c_indices.shape)
+        cz_indices = torch.cat((c_indices, a_indices), dim=1)
+        # print('cz_indices:', cz_indices.shape)
+
+        # print(cz_indices.shape)
+
 
         # target includes all sequence elements (no need to handle first one
         # differently because we are conditioning)
         target = z_indices
         # make the prediction
         logits, _ = self.transformer(cz_indices[:, :-1])
+        # print('LOGITSS', logits.shape)
         # cut off conditioning outputs - output i corresponds to p(z_i | z_{<i}, c)
         logits = logits[:, c_indices.shape[1] - 1:]
 
@@ -116,6 +141,8 @@ class Net2NetTransformer(pl.LightningModule):
     @torch.no_grad()
     def sample(self, x, c, steps, temperature=1.0, sample=False, top_k=None,
                callback=lambda k: None):
+        c = c.view(x.shape[0], -1)
+        # print("POPOPOP", c.shape, x.shape)
         x = torch.cat((c, x), dim=1)
         block_size = self.transformer.get_block_size()
         assert not self.transformer.training
@@ -167,10 +194,12 @@ class Net2NetTransformer(pl.LightningModule):
                 x = torch.cat((x, ix), dim=1)
             # cut off conditioning
             x = x[:, c.shape[1]:]
+        # print(x.shape)
         return x
 
     @torch.no_grad()
     def encode_to_z(self, x):
+        # print('enc c:', x.shape)
         quant_z, _, info = self.first_stage_model.encode(x)
         indices = info[2].view(quant_z.shape[0], -1)
         indices = self.permuter(indices)
@@ -180,9 +209,13 @@ class Net2NetTransformer(pl.LightningModule):
     def encode_to_c(self, c):
         if self.downsample_cond_size > -1:
             c = F.interpolate(c, size=(self.downsample_cond_size, self.downsample_cond_size))
-        quant_c, _, [_, _, indices] = self.cond_stage_model.encode(c)
-        if len(indices.shape) > 2:
-            indices = indices.view(c.shape[0], -1)
+        # print('enc c:', c.shape)
+        quant_c, _, info = self.cond_stage_model.encode(c)
+        indices = info[2].view(quant_c.shape[0], -1)
+        # quant_c, _, [_, _, indices] = self.cond_stage_model.encode(c)
+        # if len(indices.shape) > 2:
+        #     print('len(c) > 2')
+        #     indices = indices.view(c.shape[0], -1)
         return quant_c, indices
 
     @torch.no_grad()

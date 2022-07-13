@@ -10,6 +10,7 @@ from pytorch_lightning import seed_everything
 from pytorch_lightning.trainer import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint, Callback, LearningRateMonitor
 from pytorch_lightning.utilities.distributed import rank_zero_only
+from pytorch_lightning.loggers import WandbLogger
 
 from taming.data.utils import custom_collate
 
@@ -241,19 +242,34 @@ class ImageLogger(Callback):
     @rank_zero_only
     def _testtube(self, pl_module, images, batch_idx, split):
         for k in images:
-            grid = torchvision.utils.make_grid(images[k])
-            grid = (grid+1.0)/2.0 # -1,1 -> 0,1; c,h,w
+            # print('images1:', images[k].shape)
+            if images[k].shape[1] != 3:
+                images[k] = images[k].permute(0, 2, 1, 3) # (2, 224, 3, 224) -> (2, 3, 224, 224)
+            # print('images2:', images[k].shape)
+            # grid = torchvision.utils.make_grid(images[k])
+            grid = (images[k]+1.0)/2.0 # -1,1 -> 0,1; c,h,w
+
+            # print('grid:', grid.shape)
 
             tag = f"{split}/{k}"
-            pl_module.logger.experiment.add_image(
-                tag, grid,
-                global_step=pl_module.global_step)
 
+
+            for i in range(grid.shape[0]):
+
+                pl_module.logger.experiment.add_image(
+                    tag, grid[i],
+                    global_step=pl_module.global_step)
+
+            # print('done')
     @rank_zero_only
     def log_local(self, save_dir, split, images,
                   global_step, current_epoch, batch_idx):
         root = os.path.join(save_dir, "images", split)
+        # print('images type', type(images))
         for k in images:
+            # print('images shape:', images[k].shape)
+            if images[k].shape[1] != 3:
+                images[k] = images[k].permute(0, 2, 1, 3) # from (2, 224, 3, 224) to (2, 3, 224, 224)
             grid = torchvision.utils.make_grid(images[k], nrow=4)
 
             grid = (grid+1.0)/2.0 # -1,1 -> 0,1; c,h,w
@@ -267,6 +283,7 @@ class ImageLogger(Callback):
                 batch_idx)
             path = os.path.join(root, filename)
             os.makedirs(os.path.split(path)[0], exist_ok=True)
+            # print('grid:', grid.shape)
             Image.fromarray(grid).save(path)
 
     def log_img(self, pl_module, batch, batch_idx, split="train"):
@@ -358,6 +375,11 @@ if __name__ == "__main__":
     #           target: importpath
     #           params:
     #               key: value
+
+    # add wandb
+    # wandb_logger = WandbLogger(project="transformer test")
+
+
 
     now = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
 
@@ -466,6 +488,7 @@ if __name__ == "__main__":
         logger_cfg = OmegaConf.create()
         logger_cfg = OmegaConf.merge(default_logger_cfg, logger_cfg)
         trainer_kwargs["logger"] = instantiate_from_config(logger_cfg)
+        # trainer_kwargs["logger"] = wandb_logger  # wandb logger
 
         # modelcheckpoint - use TrainResult/EvalResult(checkpoint_on=metric) to
         # specify which metric is used to determine best models

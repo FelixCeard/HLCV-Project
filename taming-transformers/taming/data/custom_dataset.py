@@ -30,7 +30,7 @@ class ImageSketchDataLoader(Dataset):
         if not os.path.isdir(self.path_sketches):
             raise PathException(f"The given path is not a valid: {self.path_sketches}")
 
-    def __init__(self, path_images: str, path_sketches: str, size=256):
+    def __init__(self, path_images: str, path_sketches: str, size=256, max_num_images = -1):
         print('init custom image-sketch dataset')
         self.path_images = path_images
         self.path_sketches = path_sketches
@@ -58,9 +58,11 @@ class ImageSketchDataLoader(Dataset):
 
         self.apply_transform = False
 
+        print('limiting number of images')
+        if max_num_images > 0:
+            self.image_paths = self.image_paths[:max_num_images]
+            self.sketch_paths = self.sketch_paths[:max_num_images]
         print('done')
-        self.image_paths = self.image_paths[:40000]
-        self.sketch_paths = self.sketch_paths[:40000]
 
         # check whether we find a sketch for each image
         assert len(self.image_paths) == len(self.sketch_paths)
@@ -102,8 +104,8 @@ class ImageSketchDataLoader(Dataset):
         # sketch = torch.tensor(sketch, dtype=torch.float32)
         # sketch = sketch / 255.0
 
-        print('shape image:', image.shape)
-        print('shape sketch:', sketch.shape)
+        # print('shape image:', image.shape)
+        # print('shape sketch:', sketch.shape)
 
         sample = {'image': image.squeeze(), 'image_path': img_name, 'sketch': sketch.squeeze(), 'sketch_path': sketch_name}
 

@@ -7,10 +7,10 @@ model:
     transformer_config:
       target: taming.modules.transformer.mingpt.GPT
       params:
-        vocab_size: 8192
+        vocab_size: 1024
         block_size: 512
-        n_layer: 12
-        n_head: 16
+        n_layer: 2
+        n_head: 2
         n_embd: 1024
     first_stage_config:
       target: taming.models.vqgan.VQModel
@@ -66,7 +66,7 @@ model:
 data:
   target: main.DataModuleFromConfig
   params:
-    batch_size: 1
+    batch_size: 2
     num_workers: 1
     train:
       target: taming.data.custom_dataset.ImageSketchDataLoader
@@ -74,3 +74,4 @@ data:
         size: 224
         path_images: F:/DATASETS/original/images
         path_sketches: F:/DATASETS/original/sketches
+        max_num_images: 20
