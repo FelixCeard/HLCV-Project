@@ -72,14 +72,14 @@ data:
       target: taming.data.custom_dataset.ImageSketchDataLoaderTrain
       params:
         size: 224
-        path_images: F:/DATASETS/original/images
-        path_sketches: F:/DATASETS/original/sketches
+        path_images: ./images
+        path_sketches: ./sketches
         max_num_images: 20
     validation:
       target: taming.data.custom_dataset.ImageSketchDataLoaderTrain
       params:
         size: 224
-        path_images: F:/DATASETS/original/images
-        path_sketches: F:/DATASETS/original/sketches
+        path_images: ./images
+        path_sketches: ./sketches
         max_num_images: 20
 
