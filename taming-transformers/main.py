@@ -1,21 +1,28 @@
-import argparse, os, sys, datetime, glob, importlib
+import argparse
+import datetime
+import glob
+import importlib
+import os
+import sys
 
-import wandb
-import torchvision.transforms as T
-from omegaconf import OmegaConf
 import numpy as np
-from PIL import Image
+import pytorch_lightning as pl
 import torch
 import torchvision
-from torch.utils.data import random_split, DataLoader, Dataset
-import pytorch_lightning as pl
+import torchvision.transforms as T
+from PIL import Image
+from omegaconf import OmegaConf
 from pytorch_lightning import seed_everything
-from pytorch_lightning.trainer import Trainer
-from pytorch_lightning.callbacks import ModelCheckpoint, Callback, LearningRateMonitor
-from pytorch_lightning.utilities.distributed import rank_zero_only
+from pytorch_lightning.callbacks import Callback
 from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.trainer import Trainer
+from pytorch_lightning.utilities.distributed import rank_zero_only
+from torch.utils.data import DataLoader, Dataset
 
-from taming.data.utils import custom_collate
+import wandb
+
+
+# from taming.data.utils import custom_collate
 
 
 def get_obj_from_str(string, reload=False):
@@ -168,16 +175,16 @@ class DataModuleFromConfig(pl.LightningDataModule):
 
     def _train_dataloader(self):
         return DataLoader(self.datasets["train"], batch_size=self.batch_size,
-                          num_workers=self.num_workers, shuffle=True, collate_fn=custom_collate)
+                          num_workers=self.num_workers, shuffle=True)#, collate_fn=custom_collate)
 
     def _val_dataloader(self):
         return DataLoader(self.datasets["validation"],
                           batch_size=self.batch_size,
-                          num_workers=self.num_workers, collate_fn=custom_collate)
+                          num_workers=self.num_workers)#, collate_fn=custom_collate)
 
     def _test_dataloader(self):
         return DataLoader(self.datasets["test"], batch_size=self.batch_size,
-                          num_workers=self.num_workers, collate_fn=custom_collate)
+                          num_workers=self.num_workers)#, collate_fn=custom_collate)
 
 
 class SetupCallback(Callback):
