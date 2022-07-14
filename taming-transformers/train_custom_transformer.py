@@ -19,7 +19,7 @@ if __name__ == '__main__':
 
     # load configs
     logging.debug('loading configs')
-    configs = [OmegaConf.load('./HLCV-Project/taming-transformers/configs/custom_transformer.yaml')]
+    configs = [OmegaConf.load('./configs/custom_transformer.yaml')]
     config = OmegaConf.merge(*configs)
 
     # model

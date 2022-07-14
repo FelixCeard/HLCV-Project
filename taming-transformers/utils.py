@@ -15,7 +15,7 @@ import requests
 import shutil
 
 
-# from taming.data.utils import custom_collate
+from taming.data.utils import custom_collate
 
 
 def download_pretrained():
@@ -70,16 +70,16 @@ class DataModuleFromConfig(pl.LightningDataModule):
 
     def _train_dataloader(self):
         return DataLoader(self.datasets["train"], batch_size=self.batch_size,
-                          num_workers=self.num_workers, shuffle=True)#, collate_fn=custom_collate)
+                          num_workers=self.num_workers, shuffle=True, collate_fn=custom_collate)
 
     def _val_dataloader(self):
         return DataLoader(self.datasets["validation"],
                           batch_size=self.batch_size,
-                          num_workers=self.num_workers)#, collate_fn=custom_collate)
+                          num_workers=self.num_workers, collate_fn=custom_collate)
 
     def _test_dataloader(self):
         return DataLoader(self.datasets["test"], batch_size=self.batch_size,
-                          num_workers=self.num_workers)#, collate_fn=custom_collate)
+                          num_workers=self.num_workers, collate_fn=custom_collate)
 
 
 
