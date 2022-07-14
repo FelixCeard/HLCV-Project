@@ -1,10 +1,16 @@
+import datetime
 import logging
+
+from omegaconf import OmegaConf
+from pytorch_lightning import Trainer
+from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
+
+import wandb
 
 from utils import *
 
 if __name__ == '__main__':
-
-
+    download_pretrained()
     logging.debug('init')
 
     # wandb

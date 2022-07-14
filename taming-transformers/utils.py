@@ -1,23 +1,41 @@
-import argparse, os, sys, datetime, glob, importlib
+import argparse
+import importlib
+import os
 
 import matplotlib.pyplot as plt
-
-import wandb
-import torchvision.transforms as T
-from omegaconf import OmegaConf
 import numpy as np
-from PIL import Image
+import pytorch_lightning as pl
 import torch
 import torchvision
-from torch.utils.data import random_split, DataLoader, Dataset
-import pytorch_lightning as pl
-from pytorch_lightning import seed_everything, LightningModule
-from pytorch_lightning.trainer import Trainer
-from pytorch_lightning.callbacks import ModelCheckpoint, Callback, LearningRateMonitor
-from pytorch_lightning.utilities.distributed import rank_zero_only
+from pytorch_lightning.callbacks import Callback
 from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.utilities.distributed import rank_zero_only
+from torch.utils.data import DataLoader
+import requests
+import shutil
+
 
 # from taming.data.utils import custom_collate
+
+
+def download_pretrained():
+    # download the f16 model
+    os.makedirs('./logs/vqgan_imagenet_f16_1024/checkpoints', exist_ok=True)
+    os.makedirs('./logs/vqgan_imagenet_f16_1024/configs', exist_ok=True)
+
+    url1 = 'https://heibox.uni-heidelberg.de/f/140747ba53464f49b476/?dl=1'
+    url2 = 'https://heibox.uni-heidelberg.de/f/6ecf2af6c658432c8298/?dl=1'
+    response = requests.get(url1, stream=True)
+    with open('./logs/vqgan_imagenet_f16_1024/checkpoints/last.ckpt', 'wb') as out_file:
+        shutil.copyfileobj(response.raw, out_file)
+    del response
+
+    response = requests.get(url2, stream=True)
+    with open('./logs/vqgan_imagenet_f16_1024/configs/model.yaml', 'wb') as out_file:
+        shutil.copyfileobj(response.raw, out_file)
+    del response
+
+
 
 
 class DataModuleFromConfig(pl.LightningDataModule):
@@ -62,8 +80,6 @@ class DataModuleFromConfig(pl.LightningDataModule):
     def _test_dataloader(self):
         return DataLoader(self.datasets["test"], batch_size=self.batch_size,
                           num_workers=self.num_workers)#, collate_fn=custom_collate)
-
-
 
 
 
