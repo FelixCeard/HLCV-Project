@@ -15,7 +15,7 @@ if __name__ == '__main__':
 
     # wandb
     wandb.login(key='e0da967bc1f1f7b4895de7ecd6063d9513e0337c')
-    wandb_logger = WandbLogger(project="[TEST2]transformer")
+    wandb_logger = WandbLogger(project="[REAL]transformer")
 
     # load configs
     logging.debug('loading configs')
@@ -46,7 +46,7 @@ if __name__ == '__main__':
     callbacks = [
         LearningRateMonitor(logging_interval='step'),
         ModelCheckpoint(dirpath=ckptdir, filename="{epoch:06}", save_last=True),
-        ImageLogger(batch_frequency=10, max_images=4, clamp=True),
+        ImageLogger(batch_frequency=2000, max_images=4, clamp=True),
 
     ]
 
