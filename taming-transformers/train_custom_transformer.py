@@ -46,8 +46,7 @@ if __name__ == '__main__':
     callbacks = [
         LearningRateMonitor(logging_interval='step'),
         ModelCheckpoint(dirpath=ckptdir, filename="{epoch:06}", save_last=True),
-        ImageLogger(batch_frequency=2000, max_images=4, clamp=True),
-
+        ImageLogger(batch_frequency=40000, max_images=7, clamp=True),
     ]
 
     # trainer
