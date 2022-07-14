@@ -1,4 +1,7 @@
 import argparse, os, sys, datetime, glob, importlib
+
+import wandb
+import torchvision.transforms as T
 from omegaconf import OmegaConf
 import numpy as np
 from PIL import Image
@@ -59,7 +62,7 @@ def get_parser(**parser_kwargs):
         nargs="*",
         metavar="base_config.yaml",
         help="paths to base configs. Loaded from left-to-right. "
-        "Parameters can be overwritten or added with command-line options of the form `--key value`.",
+             "Parameters can be overwritten or added with command-line options of the form `--key value`.",
         default=list(),
     )
     parser.add_argument(
@@ -122,6 +125,7 @@ def instantiate_from_config(config):
 
 class WrappedDataset(Dataset):
     """Wraps an arbitrary object with __len__ and __getitem__ into a pytorch dataset"""
+
     def __init__(self, dataset):
         self.data = dataset
 
@@ -138,7 +142,7 @@ class DataModuleFromConfig(pl.LightningDataModule):
         super().__init__()
         self.batch_size = batch_size
         self.dataset_configs = dict()
-        self.num_workers = num_workers if num_workers is not None else batch_size*2
+        self.num_workers = num_workers if num_workers is not None else batch_size * 2
         if train is not None:
             self.dataset_configs["train"] = train
             self.train_dataloader = self._train_dataloader
@@ -217,7 +221,7 @@ class SetupCallback(Callback):
 
 
 class ImageLogger(Callback):
-    def __init__(self, batch_frequency, max_images, clamp=True, increase_log_steps=True):
+    def __init__(self, batch_frequency, max_images, clamp=True, increase_log_steps=True, logger=None):
         super().__init__()
         self.batch_freq = batch_frequency
         self.max_images = max_images
@@ -230,37 +234,52 @@ class ImageLogger(Callback):
             self.log_steps = [self.batch_freq]
         self.clamp = clamp
 
+        self._logger = logger
+
     @rank_zero_only
     def _wandb(self, pl_module, images, batch_idx, split):
-        raise ValueError("No way wandb")
+        # raise ValueError("No way wandb")
         grids = dict()
         for k in images:
             grid = torchvision.utils.make_grid(images[k])
-            grids[f"{split}/{k}"] = wandb.Image(grid)
-        pl_module.logger.experiment.log(grids)
+            # grid = grid.permute(2, 1, 0)
+            grid = grid.detach().cpu()  # .numpy()
+            # print(grid.shape)
+            t = T.ToPILImage()
+            img = t(grid)
+
+            # img = Image.fromarray(grid)
+            # print(img.size)
+
+            # img.save(f'./img{k}.png')
+
+            # pl.loggers.wandb.wandb.log({f'{split}/{k}': wandb.Image(img)})
+            # pl_module.logger.experiment.log({'image': wandb.Image(img)})
+            # pl_module.logger.experiment.log({"val_input_image": [wandb.Image(img, caption=k)]})
+            self._logger.log_image("val_input_image", images=[wandb.Image(img)])
+            # wandb.log({"val_input_image": [wandb.Image(img, caption=k)]})
 
     @rank_zero_only
     def _testtube(self, pl_module, images, batch_idx, split):
         for k in images:
             # print('images1:', images[k].shape)
             if images[k].shape[1] != 3:
-                images[k] = images[k].permute(0, 2, 1, 3) # (2, 224, 3, 224) -> (2, 3, 224, 224)
+                images[k] = images[k].permute(0, 2, 1, 3)  # (2, 224, 3, 224) -> (2, 3, 224, 224)
             # print('images2:', images[k].shape)
             # grid = torchvision.utils.make_grid(images[k])
-            grid = (images[k]+1.0)/2.0 # -1,1 -> 0,1; c,h,w
+            grid = (images[k] + 1.0) / 2.0  # -1,1 -> 0,1; c,h,w
 
             # print('grid:', grid.shape)
 
             tag = f"{split}/{k}"
 
-
             for i in range(grid.shape[0]):
-
                 pl_module.logger.experiment.add_image(
                     tag, grid[i],
                     global_step=pl_module.global_step)
 
             # print('done')
+
     @rank_zero_only
     def log_local(self, save_dir, split, images,
                   global_step, current_epoch, batch_idx):
@@ -269,13 +288,13 @@ class ImageLogger(Callback):
         for k in images:
             # print('images shape:', images[k].shape)
             if images[k].shape[1] != 3:
-                images[k] = images[k].permute(0, 2, 1, 3) # from (2, 224, 3, 224) to (2, 3, 224, 224)
+                images[k] = images[k].permute(0, 2, 1, 3)  # from (2, 224, 3, 224) to (2, 3, 224, 224)
             grid = torchvision.utils.make_grid(images[k], nrow=4)
 
-            grid = (grid+1.0)/2.0 # -1,1 -> 0,1; c,h,w
-            grid = grid.transpose(0,1).transpose(1,2).squeeze(-1)
+            grid = (grid + 1.0) / 2.0  # -1,1 -> 0,1; c,h,w
+            grid = grid.transpose(0, 1).transpose(1, 2).squeeze(-1)
             grid = grid.numpy()
-            grid = (grid*255).astype(np.uint8)
+            grid = (grid * 255).astype(np.uint8)
             filename = "{}_gs-{:06}_e-{:06}_b-{:06}.png".format(
                 k,
                 global_step,
@@ -333,7 +352,6 @@ class ImageLogger(Callback):
         self.log_img(pl_module, batch, batch_idx, split="val")
 
 
-
 if __name__ == "__main__":
     # custom parser to specify config files, train, test and debug mode,
     # postfix, resume.
@@ -377,9 +395,9 @@ if __name__ == "__main__":
     #               key: value
 
     # add wandb
-    # wandb_logger = WandbLogger(project="transformer test")
+    # wandb.login(key='e0da967bc1f1f7b4895de7ecd6063d9513e0337c')
 
-
+    # wandb_logger = WandbLogger(project="[TEST]transformer")
 
     now = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
 
@@ -403,7 +421,7 @@ if __name__ == "__main__":
             raise ValueError("Cannot find {}".format(opt.resume))
         if os.path.isfile(opt.resume):
             paths = opt.resume.split("/")
-            idx = len(paths)-paths[::-1].index("logs")+1
+            idx = len(paths) - paths[::-1].index("logs") + 1
             logdir = "/".join(paths[:idx])
             ckpt = opt.resume
         else:
@@ -413,19 +431,19 @@ if __name__ == "__main__":
 
         opt.resume_from_checkpoint = ckpt
         base_configs = sorted(glob.glob(os.path.join(logdir, "configs/*.yaml")))
-        opt.base = base_configs+opt.base
+        opt.base = base_configs + opt.base
         _tmp = logdir.split("/")
-        nowname = _tmp[_tmp.index("logs")+1]
+        nowname = _tmp[_tmp.index("logs") + 1]
     else:
         if opt.name:
-            name = "_"+opt.name
+            name = "_" + opt.name
         elif opt.base:
             cfg_fname = os.path.split(opt.base[0])[-1]
             cfg_name = os.path.splitext(cfg_fname)[0]
-            name = "_"+cfg_name
+            name = "_" + cfg_name
         else:
             name = ""
-        nowname = now+name+opt.postfix
+        nowname = now + name + opt.postfix
         logdir = os.path.join("logs", nowname)
 
     ckptdir = os.path.join(logdir, "checkpoints")
@@ -483,11 +501,11 @@ if __name__ == "__main__":
                 }
             },
         }
-        default_logger_cfg = default_logger_cfgs["testtube"]
-        # logger_cfg = lightning_config.logger or OmegaConf.create()
+        default_logger_cfg = default_logger_cfgs["wandb"]
+        # logger_cfg = lightning_config.logger #or OmegaConf.create()
         logger_cfg = OmegaConf.create()
         logger_cfg = OmegaConf.merge(default_logger_cfg, logger_cfg)
-        trainer_kwargs["logger"] = instantiate_from_config(logger_cfg)
+        logger = trainer_kwargs["logger"] = instantiate_from_config(logger_cfg)
         # trainer_kwargs["logger"] = wandb_logger  # wandb logger
 
         # modelcheckpoint - use TrainResult/EvalResult(checkpoint_on=metric) to
@@ -506,7 +524,7 @@ if __name__ == "__main__":
             default_modelckpt_cfg["params"]["monitor"] = model.monitor
             default_modelckpt_cfg["params"]["save_top_k"] = 3
 
-        # modelckpt_cfg = lightning_config.modelcheckpoint or OmegaConf.create()
+        # modelckpt_cfg = lightning_config.modelcheckpoint # or OmegaConf.create()
         modelckpt_cfg = OmegaConf.create()
         modelckpt_cfg = OmegaConf.merge(default_modelckpt_cfg, modelckpt_cfg)
         trainer_kwargs["checkpoint_callback"] = instantiate_from_config(modelckpt_cfg)
@@ -525,19 +543,19 @@ if __name__ == "__main__":
                     "lightning_config": lightning_config,
                 }
             },
-            "image_logger": {
-                "target": "main.ImageLogger",
-                "params": {
-                    "batch_frequency": 750,
-                    "max_images": 4,
-                    "clamp": True
-                }
-            },
+            # "image_logger": {
+            #     "target": "main.ImageLogger",
+            #     "params": {
+            #         "batch_frequency": 10,
+            #         "max_images": 4,
+            #         "clamp": True,
+            #     }
+            # },
             "learning_rate_logger": {
                 "target": "main.LearningRateMonitor",
                 "params": {
                     "logging_interval": "step",
-                    #"log_momentum": True
+                    # "log_momentum": True
                 }
             },
         }
@@ -545,6 +563,8 @@ if __name__ == "__main__":
         callbacks_cfg = OmegaConf.create()
         callbacks_cfg = OmegaConf.merge(default_callbacks_cfg, callbacks_cfg)
         trainer_kwargs["callbacks"] = [instantiate_from_config(callbacks_cfg[k]) for k in callbacks_cfg]
+
+        trainer_kwargs['callbacks'].append(ImageLogger(batch_frequency=10, max_images=4, clamp=True, logger=logger))
 
         trainer = Trainer.from_argparse_args(trainer_opt, **trainer_kwargs)
 
@@ -567,8 +587,10 @@ if __name__ == "__main__":
         print(f"accumulate_grad_batches = {accumulate_grad_batches}")
         lightning_config.trainer.accumulate_grad_batches = accumulate_grad_batches
         model.learning_rate = accumulate_grad_batches * ngpu * bs * base_lr
-        print("Setting learning rate to {:.2e} = {} (accumulate_grad_batches) * {} (num_gpus) * {} (batchsize) * {:.2e} (base_lr)".format(
-            model.learning_rate, accumulate_grad_batches, ngpu, bs, base_lr))
+        print(
+            "Setting learning rate to {:.2e} = {} (accumulate_grad_batches) * {} (num_gpus) * {} (batchsize) * {:.2e} (base_lr)".format(
+                model.learning_rate, accumulate_grad_batches, ngpu, bs, base_lr))
+
 
         # allow checkpointing via USR1
         def melk(*args, **kwargs):
@@ -578,9 +600,12 @@ if __name__ == "__main__":
                 ckpt_path = os.path.join(ckptdir, "last.ckpt")
                 trainer.save_checkpoint(ckpt_path)
 
+
         def divein(*args, **kwargs):
             if trainer.global_rank == 0:
-                import pudb; pudb.set_trace()
+                import pudb;
+                pudb.set_trace()
+
 
         # import signal
         # signal.signal(signal.SIGUSR1, melk)
@@ -596,7 +621,7 @@ if __name__ == "__main__":
         if not opt.no_test and not trainer.interrupted:
             trainer.test(model, data)
     except Exception:
-        if opt.debug and trainer.global_rank==0:
+        if opt.debug and trainer.global_rank == 0:
             try:
                 import pudb as debugger
             except ImportError:
@@ -605,7 +630,7 @@ if __name__ == "__main__":
         raise
     finally:
         # move newly created debug project to debug_runs
-        if opt.debug and not opt.resume and trainer.global_rank==0:
+        if opt.debug and not opt.resume and trainer.global_rank == 0:
             dst, name = os.path.split(logdir)
             dst = os.path.join(dst, "debug_runs", name)
             os.makedirs(os.path.split(dst)[0], exist_ok=True)

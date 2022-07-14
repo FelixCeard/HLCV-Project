@@ -142,6 +142,101 @@ class ImageSketchDataLoader(Dataset):
         return train_transform(image=image, sketch=sketch)
 
 
+class ImageSketchDataLoaderTrain(ImageSketchDataLoader):
+    def __init__(self, path_images: str, path_sketches: str, size=256, max_num_images = -1, split=1):
+        super(ImageSketchDataLoaderTrain, self).__init__(path_images, path_sketches, size, max_num_images)
+        print('init custom image-sketch dataset')
+        self.path_images = path_images
+        self.path_sketches = path_sketches
+        self.resize_size = size
+
+        self.check_dataset_folder()
+
+        # get images
+        print('scanning the images')
+        self.image_paths = []
+        self.image_paths.extend(glob.glob(os.path.join(path_images, '*.png')))
+        self.image_paths.extend(glob.glob(os.path.join(path_images, '*.jpg')))
+        self.image_paths.extend(glob.glob(os.path.join(path_images, '*.jpeg')))
+
+        # get sketches
+        print('scanning the sketches')
+        self.sketch_paths = []
+        self.sketch_paths.extend(glob.glob(os.path.join(path_sketches, '*.png')))
+        self.sketch_paths.extend(glob.glob(os.path.join(path_sketches, '*.jpg')))
+        self.sketch_paths.extend(glob.glob(os.path.join(path_sketches, '*.jpeg')))
+
+        print('sorting the images and sketches')
+        self.image_paths.sort()
+        self.sketch_paths.sort()
+
+        self.apply_transform = False
+
+        print('limiting number of images')
+        whole_size = len(self.image_paths)
+
+        train_size = int(whole_size * split)
+        test_size = whole_size - train_size
+
+        if max_num_images > 0:
+            self.image_paths = self.image_paths[:min(max_num_images, train_size)]
+            self.sketch_paths = self.sketch_paths[:min(max_num_images, train_size)]
+        print('done')
+
+        # check whether we find a sketch for each image
+        assert len(self.image_paths) == len(self.sketch_paths)
+
+        self.size = len(self.image_paths)
+
+class ImageSketchDataLoaderTest(ImageSketchDataLoader):
+    def __init__(self, path_images: str, path_sketches: str, size=256, max_num_images = -1, split=1):
+        super(ImageSketchDataLoaderTrain, self).__init__(path_images, path_sketches, size, max_num_images)
+        print('init custom image-sketch dataset')
+        self.path_images = path_images
+        self.path_sketches = path_sketches
+        self.resize_size = size
+
+        self.check_dataset_folder()
+
+        # get images
+        print('scanning the images')
+        self.image_paths = []
+        self.image_paths.extend(glob.glob(os.path.join(path_images, '*.png')))
+        self.image_paths.extend(glob.glob(os.path.join(path_images, '*.jpg')))
+        self.image_paths.extend(glob.glob(os.path.join(path_images, '*.jpeg')))
+
+        # get sketches
+        print('scanning the sketches')
+        self.sketch_paths = []
+        self.sketch_paths.extend(glob.glob(os.path.join(path_sketches, '*.png')))
+        self.sketch_paths.extend(glob.glob(os.path.join(path_sketches, '*.jpg')))
+        self.sketch_paths.extend(glob.glob(os.path.join(path_sketches, '*.jpeg')))
+
+        print('sorting the images and sketches')
+        self.image_paths.sort()
+        self.sketch_paths.sort()
+
+        self.apply_transform = False
+
+        print('limiting number of images')
+        whole_size = len(self.image_paths)
+
+        train_size = int(whole_size * split)
+        test_size = whole_size - train_size
+
+        self.image_paths = self.image_paths[train_size:]
+        self.sketch_paths = self.sketch_paths[train_size:]
+
+        if max_num_images > 0:
+            self.image_paths = self.image_paths[:max_num_images]
+            self.sketch_paths = self.sketch_paths[:max_num_images]
+        print('done')
+
+        # check whether we find a sketch for each image
+        assert len(self.image_paths) == len(self.sketch_paths)
+
+        self.size = len(self.image_paths)
+
 class RandomChoice(torch.nn.Module):
     def __init__(self):
         super().__init__()
