@@ -15,7 +15,7 @@ if __name__ == '__main__':
 
     # wandb
     wandb.login(key='e0da967bc1f1f7b4895de7ecd6063d9513e0337c')
-    wandb_logger = WandbLogger(project="[REAL]transformer", resume=True)
+    wandb_logger = WandbLogger(project="[REAL]transformer")
 
     # load configs
     logging.debug('loading configs')
