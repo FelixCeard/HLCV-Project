@@ -4,7 +4,7 @@ model:
   params:
     first_stage_key: image
     cond_stage_key: sketch
-    ckpt_path: logs/2022-07-20T10-37-00custom_transformer/checkpoints/last.ckpt # remove for clean training
+    ckpt_path: logs/custom_transformer/checkpoints/last.ckpt
     transformer_config:
       target: taming.modules.transformer.mingpt.GPT
       params:
@@ -13,6 +13,7 @@ model:
         n_layer: 2
         n_head: 2
         n_embd: 1024
+
     first_stage_config:
       target: taming.models.vqgan.VQModel
       params:
